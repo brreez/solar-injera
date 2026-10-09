@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Injera solar sizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Source+Sans+3:wght@400;600&family=Noto+Sans+Ethiopic:wght@600&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#EBEFF2; --surface:#FFFFFF; --soft:#F3F6F8; --ink:#16212C; --muted:#566371; --line:#D1D9E0;
+  --sun:#E8A400; --sun-soft:#F6DE9E;
+  --pv:#2455C7; --inv:#6A4FC2; --bat:#12806F; --heat:#D2411B; --focus:#2455C7;
+  --font-d:'Bricolage Grotesque','Trebuchet MS',system-ui,sans-serif;
+  --font-b:'Source Sans 3','Segoe UI',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E151C; --surface:#16212B; --soft:#1D2A36; --ink:#E7EDF2; --muted:#9BA9B7; --line:#2B3A48;
+    --sun:#F2B51F; --sun-soft:#5B4A18;
+    --pv:#7DA1F5; --inv:#A894F0; --bat:#3FC2AE; --heat:#F27A52; --focus:#7DA1F5;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E151C; --surface:#16212B; --soft:#1D2A36; --ink:#E7EDF2; --muted:#9BA9B7; --line:#2B3A48;
+  --sun:#F2B51F; --sun-soft:#5B4A18;
+  --pv:#7DA1F5; --inv:#A894F0; --bat:#3FC2AE; --heat:#F27A52; --focus:#7DA1F5;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-b);font-size:16px;line-height:1.5}
+.wrap{max-width:1280px;margin:0 auto;padding:18px 16px 48px}
+header.top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+h1{font-family:var(--font-d);font-weight:700;font-size:clamp(1.5rem,3.4vw,2.1rem);letter-spacing:-.01em;margin:0}
+.am{font-family:'Noto Sans Ethiopic',var(--font-b);font-weight:600;color:var(--heat);font-size:1.25rem}
+header.top p{margin:0;color:var(--muted);flex-basis:100%}
+
+/* hero */
+.hero{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:22px 22px 18px;margin-bottom:18px}
+.sentence{font-family:var(--font-d);font-weight:600;font-size:clamp(1.25rem,2.5vw,1.95rem);line-height:1.3;margin:0;max-width:34em;letter-spacing:-.005em}
+.sentence b{font-weight:700}
+.c-pv{color:var(--pv)} .c-inv{color:var(--inv)} .c-bat{color:var(--bat)} .c-heat{color:var(--heat)}
+.sub{margin:10px 0 0;color:var(--muted);max-width:62ch}
+.hero-actions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+button.act{font:600 .95rem var(--font-b);padding:9px 14px;border-radius:8px;border:1px solid var(--ink);background:var(--ink);color:var(--surface);cursor:pointer}
+button.act:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.copied{color:var(--muted);font-size:.9rem}
+
+.tl{display:grid;grid-template-columns:64px 1fr;gap:6px 12px;align-items:center;margin-top:22px}
+.tl .lab{font-size:.85rem;color:var(--muted)}
+.track{position:relative;height:26px;background:var(--soft);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.track i{position:absolute;top:0;bottom:0;display:block;transition:left .25s,width .25s}
+.i-sun{background:var(--sun-soft)}
+.i-d{background:var(--pv)} .i-b{background:var(--bat)}
+.warm{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.6) 0 3px,transparent 3px 7px)}
+.axis{position:relative;height:18px;font-size:.72rem;color:var(--muted)}
+.axis span{position:absolute;top:0;transform:translateX(-50%)}
+.axis span:first-child{transform:none}.axis span:last-child{transform:translateX(-100%)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px;font-size:.85rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend u{display:inline-block;width:14px;height:14px;border-radius:3px;text-decoration:none}
+
+/* layout */
+.app{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+@media (min-width:1040px){.app{grid-template-columns:420px minmax(0,1fr);align-items:start}
+  .controls{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}}
+.controls{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px 16px 16px}
+.grp{padding:14px 0;border-bottom:1px solid var(--line)}
+.grp:last-of-type{border-bottom:0}
+.grp h2{font-family:var(--font-d);font-size:1.05rem;margin:0 0 10px;font-weight:700}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fld{display:flex;flex-direction:column;gap:3px;min-width:0}
+.fld.wide{grid-column:1/-1}
+.lbl{font-size:.85rem;color:var(--muted)}
+.inp{display:flex;align-items:center;gap:6px}
+.inp em{font-style:normal;color:var(--muted);font-size:.85rem;white-space:nowrap}
+input[type=number],input[type=time],select{width:100%;min-width:0;font:inherit;font-size:1rem;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+input[type=range]{width:100%;accent-color:var(--bat)}
+small.hint{color:var(--muted);font-size:.78rem;line-height:1.3}
+.discs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.disc{width:36px;height:36px;border-radius:50%;border:2px solid var(--line);background:var(--soft);color:var(--muted);font:700 .8rem var(--font-d);cursor:pointer;padding:0}
+.disc[aria-pressed="true"]{border-color:var(--heat);background:radial-gradient(circle,#8d290e 0 26%,var(--heat) 28%);color:#fff}
+.disc:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.disc-sum{font-size:.9rem;color:var(--muted);margin-bottom:12px}
+.check{display:flex;gap:8px;align-items:center;font-size:.95rem}
+details.adv{border-top:1px solid var(--line);margin-top:6px;padding-top:10px}
+details.adv summary{cursor:pointer;font-family:var(--font-d);font-weight:700;padding:4px 0}
+details.adv h4{margin:16px 0 8px;font-size:.95rem;font-family:var(--font-d)}
+
+/* results */
+.res{min-width:0}
+.blk{background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--c);border-radius:6px 14px 14px 6px;padding:14px 18px 10px;margin-bottom:14px}
+.blk.pv{--c:var(--pv)} .blk.inv{--c:var(--inv)} .blk.bat{--c:var(--bat)} .blk.heat{--c:var(--heat)} .blk.neutral{--c:var(--muted)}
+.bh{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.bh h3{margin:0;font-family:var(--font-d);font-size:1.1rem}
+.bh .main{font-family:var(--font-d);font-weight:700;font-size:1.6rem;color:var(--c)}
+dl{margin:0}
+.row{display:flex;justify-content:space-between;gap:16px;padding:6px 0;border-top:1px solid var(--line)}
+.row dt{color:var(--muted);flex:0 1 46%}
+.row dd{margin:0;text-align:right;font-weight:600;flex:1 1 54%}
+.row dd small{display:block;font-weight:400;color:var(--muted)}
+.split{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:6px 0 10px}
+.split i{display:block}
+ul.chk{list-style:none;margin:0;padding:0}
+ul.chk li{display:flex;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+ul.chk li:first-child{border-top:0}
+.dot{flex:0 0 22px;height:22px;border-radius:50%;display:grid;place-items:center;font:700 .8rem var(--font-d);color:#fff;margin-top:1px}
+.dot.ok{background:var(--bat)} .dot.warn{background:var(--sun);color:#3a2900} .dot.bad{background:var(--heat)} .dot.info{background:var(--muted)}
+.vh{position:absolute;left:-9999px}
+table.w{width:100%;border-collapse:collapse;font-size:.92rem}
+table.w th,table.w td{padding:6px 8px;border-top:1px solid var(--line);text-align:right}
+table.w th:first-child,table.w td:first-child{text-align:left}
+table.w th{color:var(--muted);font-weight:600}
+.scroll{overflow-x:auto}
+.d-good{color:var(--bat)} .d-bad{color:var(--heat)}
+
+/* flow */
+.flow{display:grid;grid-template-columns:1fr 84px 1fr 84px 1fr;align-items:center;margin-bottom:14px}
+.node{border:2px solid var(--c);border-radius:12px;padding:10px 12px;background:var(--surface);text-align:center;display:flex;flex-direction:column;gap:2px;font-size:.9rem}
+.node b{font-family:var(--font-d);font-size:1rem;color:var(--c)}
+.n-pv{--c:var(--pv)} .n-inv{--c:var(--inv)} .n-load{--c:var(--heat)} .n-bat{--c:var(--bat);grid-column:3}
+.link{text-align:center;font-size:.72rem;color:var(--muted);padding:0 4px;line-height:1.2}
+.link::before{content:"";display:block;height:2px;background:var(--line);margin-bottom:4px}
+.vlink{grid-column:3;height:26px;width:2px;background:var(--line);justify-self:center}
+@media (max-width:760px){
+  .flow{grid-template-columns:1fr}
+  .link{padding:6px 0}.link::before{width:2px;height:14px;margin:0 auto 4px}
+  .n-bat,.vlink{grid-column:1}
+}
+.notes{color:var(--muted);font-size:.85rem;margin-top:8px}
+.notes li{margin-bottom:4px}
+@media (prefers-reduced-motion:reduce){.track i{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Injera solar sizer</h1><span class="am" lang="am" aria-hidden="true">እንጀራ</span>
+    <p>Size the solar panels, inverter and battery for a multi-griddle injera machine. Change any input and everything updates.</p>
+  </header>
+
+  <section class="hero" aria-live="polite">
+    <p class="sentence" id="sentence"></p>
+    <p class="sub" id="subline"></p>
+    <div class="hero-actions"><button class="act" id="copyBtn" type="button">Copy summary</button><span class="copied" id="copied" role="status"></span></div>
+    <div class="tl" id="timeline" aria-label="Daily schedule against sunlight"></div>
+    <div class="legend">
+      <span><u style="background:var(--sun-soft)"></u>Solar window</span>
+      <span><u style="background:var(--pv)"></u>Running on solar</span>
+      <span><u style="background:var(--bat)"></u>Running on battery</span>
+      <span><u style="background:var(--ink);background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.6) 0 3px,transparent 3px 7px)"></u>Striped = warm-up</span>
+    </div>
+  </section>
+
+  <div class="app">
+    <aside class="controls" id="controls" aria-label="Inputs"></aside>
+    <main class="res" id="results"></main>
+  </div>
+</div>
+
+<script>
+/* ---------- reference tables ---------- */
+const STD_BREAKERS=[6,10,16,20,25,32,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250];
+const STD_INV=[3,5,8,10,12,15,20,25,30,40,50,60,80,100,125,150];
+const STD_FUSE=[10,15,20,25,30,32,40];
+const CABLE=[[1.5,16],[2.5,22],[4,30],[6,38],[10,52],[16,70],[25,93],[35,115],[50,140],[70,178],[95,215],[120,250],[150,286],[185,325],[240,380],[300,430]];
+const CITIES={
+  addis:{name:'Addis Ababa',avg:5.6,min:4.3,alt:2355,tmin:4},
+  bahir:{name:'Bahir Dar',avg:5.9,min:4.8,alt:1800,tmin:9},
+  mekelle:{name:'Mekelle',avg:6.1,min:5.3,alt:2084,tmin:5},
+  hawassa:{name:'Hawassa',avg:5.7,min:4.6,alt:1700,tmin:9},
+  dire:{name:'Dire Dawa',avg:6.0,min:5.2,alt:1260,tmin:14},
+  jimma:{name:'Jimma',avg:5.3,min:4.0,alt:1720,tmin:9},
+  custom:{name:'Other site (edit values)',avg:5.5,min:4.5,alt:1500,tmin:10}
+};
+const PANELS={
+  p400:{label:'400 W',pw:400,voc:37.0,vmp:31.0,isc:13.6,parea:1.95},
+  p550:{label:'550 W',pw:550,voc:49.9,vmp:41.8,isc:13.9,parea:2.58},
+  p600:{label:'600 W',pw:600,voc:51.9,vmp:43.2,isc:14.7,parea:2.80},
+  p700:{label:'700 W',pw:700,voc:48.4,vmp:40.6,isc:18.0,parea:3.10},
+  custom:{label:'Custom (edit values)'}
+};
+const BATT={
+  lfp:{label:'Lithium iron phosphate (LiFePO₄)',short:'LiFePO₄',dod:90,eff:95,cmax:0.5,age:10,uv:51.2,uah:100,pbat:280},
+  tubular:{label:'Tubular flooded lead-acid',short:'tubular lead-acid',dod:50,eff:80,cmax:0.15,age:15,uv:12,uah:200,pbat:140},
+  gel:{label:'Gel / AGM lead-acid',short:'gel/AGM lead-acid',dod:50,eff:85,cmax:0.2,age:15,uv:12,uah:200,pbat:190}
+};
+
+/* ---------- state ---------- */
+const S={
+  n:10,pG:3000,duty:70,hu:20,aux:800,simul:100,rate:20,
+  start:'07:00',end:'16:00',sw1:'08:00',sw2:'16:00',
+  city:'addis',basis:'min',pshAvg:5.6,pshMin:4.3,alt:2355,tmin:4,area:0,
+  batt:'lfp',dod:90,eff:95,cmax:0.5,age:10,buf:10,days:1,uv:51.2,uah:100,vbus:'auto',manual:false,share:0,
+  panel:'p550',pw:550,voc:49.9,vmp:41.8,isc:13.9,parea:2.58,bv:-0.27,
+  pr:78,einv:95,margin:10,head:15,phase:'auto',surgeM:3,
+  mvmax:1000,mvmin:200,mimax:26,mpmax:15,
+  ppw:0.30,pinv:180,pbat:280,bos:25
+};
+
+/* ---------- helpers ---------- */
+const f=(x,d=1)=>isFinite(x)?Number(x).toLocaleString('en-US',{maximumFractionDigits:d}):'–';
+const hm=h=>{h=((h%24)+24)%24;let H=Math.floor(h),M=Math.round((h-H)*60);if(M===60){H=(H+1)%24;M=0}return String(H).padStart(2,'0')+':'+String(M).padStart(2,'0')};
+const tt=v=>{const p=String(v).split(':');return (+p[0]||0)+(+p[1]||0)/60};
+const cable=I=>{const c=CABLE.find(x=>x[1]>=I);return c?c[0]+' mm²':Math.ceil(I/430)+' × 300 mm² in parallel'};
+const breaker=I=>{const b=STD_BREAKERS.find(v=>v>=I);return b?b+' A':f(I,0)+' A (use a bus-bar rated device)'};
+const ov=(x1,x2,y1,y2)=>Math.max(0,Math.min(x2,y2)-Math.max(x1,y1));
+
+/* ---------- calculation ---------- */
+function compute(s){
+  const a=tt(s.start); let b=tt(s.end); if(b<=a+0.25) b=Math.min(24,a+0.25);
+  const dur=b-a, hu=Math.min(s.hu/60,dur);
+  const sw1=tt(s.sw1), sw2=Math.max(tt(s.sw2),sw1);
+  const Ph=s.n*s.pG/1000, Pb=Ph*s.duty/100, Pa=s.aux/1000;
+  const Eh=Ph*hu, Ebk=Pb*(dur-hu), Ea=Pa*dur, E=Eh+Ebk+Ea;
+  let Eout=0;
+  [[a,a+hu,Ph+Pa],[a+hu,b,Pb+Pa]].forEach(g=>{Eout+=g[2]*((g[1]-g[0])-ov(g[0],g[1],sw1,sw2))});
+  const Tin=ov(a,b,sw1,sw2);
+  const autoShare=E>0?Math.min(1,Eout/E):0;
+  const share=s.manual?s.share/100:autoShare;
+  const Ebat=share*E, Edir=E-Ebat;
+
+  /* solar array */
+  const einv=s.einv/100, eb=s.eff/100, pr=s.pr/100, mg=1+s.margin/100;
+  const psh=s.basis==='avg'?s.pshAvg:s.pshMin;
+  const Epv=Edir/einv+Ebat/(einv*eb);
+  const kwpE=Epv/(psh*pr)*mg;
+  const g=0.8; /* typical irradiance (kW/m²) while baking */
+  const Tdir=Tin>0.05?Tin:dur;
+  const kwpP=Edir>0?(Edir/Tdir/einv)/(g*pr)*mg:0;
+  const kwp=Math.max(kwpE,kwpP), gov=kwpE>=kwpP?'daily energy':'power while the sun is up';
+  const nReq=Math.max(1,Math.ceil(kwp*1000/s.pw));
+  const vocCold=s.voc*(1+s.bv/100*(s.tmin-25));
+  const vmpHot=s.vmp*(1+s.bv/100*(60-25));
+  const maxS=Math.floor(s.mvmax/vocCold), minS=Math.max(1,Math.ceil(s.mvmin/vmpHot));
+  let series,strings,valid=true;
+  if(maxS<1||minS>maxS){valid=false;series=Math.max(1,maxS);strings=Math.ceil(nReq/series)}
+  else{let best=null;for(let k=minS;k<=maxS;k++){const st=Math.ceil(nReq/k),tot=st*k;if(!best||tot<best.tot||(tot===best.tot&&k>best.k))best={k,st,tot}}series=best.k;strings=best.st}
+  const panels=series*strings, kwpAct=panels*s.pw/1000, areaM2=panels*s.parea;
+  const spm=Math.max(1,Math.floor(s.mimax/s.isc));
+  const ch=Math.max(1,Math.ceil(kwpAct/s.mpmax),Math.ceil(strings/spm));
+  const perCh=Math.ceil(strings/ch);
+  const fuse=perCh>=3?STD_FUSE.find(x=>x>=1.56*s.isc):null;
+
+  /* inverter */
+  const peak=(s.n*s.pG*s.simul/100+s.aux)/1000;
+  const altF=s.alt>2000?1-0.01*(s.alt-2000)/100:1;
+  const surge=Ph*(s.simul/100)*1.1+Pa*s.surgeM;
+  const invReq=Math.max(peak*(1+s.head/100),surge/1.5)/altF;
+  const ph=s.phase==='auto'?(invReq>8?3:1):+s.phase;
+  let invUnit=STD_INV.find(x=>x>=invReq),invN=1;
+  if(!invUnit){invUnit=STD_INV[STD_INV.length-1];invN=Math.ceil(invReq/invUnit)}
+  let altInv=null;
+  if(invReq>12){const c=STD_INV.filter(x=>x>=5&&x<=invReq/2);if(c.length){const u=c[c.length-1];altInv={n:Math.ceil(invReq/u),u}}}
+  const Iac=peak*1000/(ph===3?Math.sqrt(3)*400:230);
+  const invTot=invUnit*invN, dcac=kwpAct/invTot;
+  const Ig=s.pG/230;
+  const base=Math.floor(s.n/3), ex=s.n%3;
+  const perPhase=ph===3?[base+(ex>0?1:0),base+(ex>1?1:0),base]:[s.n];
+  const imb=ph===3&&s.n>0?(Math.max(...perPhase)/(s.n/3)-1)*100:0;
+
+  /* battery */
+  const dod=s.dod/100, age=1+s.age/100;
+  const Edc=Ebat/einv;
+  const Pdc=peak/einv;
+  const capE=Edc*s.days/dod*age;
+  const capBuf=Pdc*s.buf/60/dod*age;
+  const Pbatt=Pdc*Math.max(share,0.25);
+  const capP=Pbatt/s.cmax;
+  const cap=Math.max(capE,capBuf,capP);
+  const govB=cap===capE&&capE>0?'daily energy from battery':(cap===capBuf?'stability buffer':'discharge power limit (C-rate)');
+  const Vopts=[48,96,192,384];
+  const bus=s.vbus==='auto'?(Vopts.find(V=>Pbatt*1000/V<=160&&cap*1000/V<=500)||384):+s.vbus;
+  const bSeries=Math.max(1,Math.round(bus/s.uv)), bankV=bSeries*s.uv;
+  const bPar=Math.max(1,Math.ceil(cap*1000/bankV/s.uah));
+  const units=bSeries*bPar, nomAct=units*s.uv*s.uah/1000, usable=nomAct*dod;
+  const Ipk=Pbatt*1000/bankV;
+  const Ifull=invTot*1000/(einv*bankV);
+  const capab=nomAct*s.cmax;
+
+  /* cost */
+  const cPV=kwpAct*1000*s.ppw, cInv=invTot*s.pinv, cBat=nomAct*s.pbat;
+  const sub=cPV+cInv+cBat, cBos=sub*s.bos/100, cTot=sub+cBos;
+
+  const injera=s.n*s.rate*(dur-hu);
+  return {a,b,dur,hu,sw1,sw2,Ph,Pb,Pa,Eh,Ebk,Ea,E,Eout,Tin,autoShare,share,Ebat,Edir,psh,pr,Epv,kwpE,kwpP,kwp,gov,nReq,
+    vocCold,vmpHot,maxS,minS,series,strings,valid,panels,kwpAct,areaM2,spm,ch,perCh,fuse,
+    peak,altF,surge,invReq,ph,invUnit,invN,altInv,Iac,invTot,dcac,Ig,perPhase,imb,
+    dod,Edc,Pdc,capE,capBuf,Pbatt,capP,cap,govB,bus,bSeries,bankV,bPar,units,nomAct,usable,Ipk,Ifull,capab,
+    cPV,cInv,cBat,cBos,cTot,injera,kWhInj:injera>0?E/injera:NaN};
+}
+
+/* ---------- inputs ---------- */
+const num=(id,label,unit,step,hint,wide)=>`<label class="fld${wide?' wide':''}" for="${id}"><span class="lbl">${label}</span><span class="inp"><input id="${id}" type="number" inputmode="decimal" step="${step||1}">${unit?`<em>${unit}</em>`:''}</span>${hint?`<small class="hint">${hint}</small>`:''}</label>`;
+const tim=(id,label)=>`<label class="fld" for="${id}"><span class="lbl">${label}</span><input id="${id}" type="time"></label>`;
+const sel=(id,label,opts,wide)=>`<label class="fld${wide?' wide':''}" for="${id}"><span class="lbl">${label}</span><select id="${id}">${opts.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join('')}</select></label>`;
+
+function buildControls(){
+  const discs=Array.from({length:10},(_,i)=>`<button type="button" class="disc" data-n="${i+1}" aria-label="Use ${i+1} griddle${i?'s':''}" aria-pressed="false">${i+1}</button>`).join('');
+  $('#controls').innerHTML=`
+  <div class="grp"><h2>Machine</h2>
+    <div class="discs" role="group" aria-label="Number of griddles">${discs}</div>
+    <div class="disc-sum" id="discSum"></div>
+    <div class="grid2">
+      ${num('pG','Power per griddle','W',100)}
+      ${num('duty','Average duty while baking','%',5,'Thermostat cycling')}
+      ${num('hu','Warm-up from cold','min',5,'Full power')}
+      ${num('aux','Other loads','W',50,'Batter pump, conveyor, controls, fans')}
+      ${num('simul','Griddles heating at once during warm-up','%',5,'Lower if the controller staggers warm-up',true)}
+      ${num('rate','Injera per griddle per hour','',1,'Used for energy per injera',true)}
+    </div></div>
+  <div class="grp"><h2>Daily schedule</h2>
+    <div class="grid2">${tim('start','Machine on (warm-up starts)')}${tim('end','Machine off')}${tim('sw1','Solar window opens')}${tim('sw2','Solar window closes')}</div>
+    <small class="hint">Energy used outside the solar window comes from the battery. Open the window earlier or later if your roof is shaded.</small></div>
+  <div class="grp"><h2>Site</h2>
+    <div class="grid2">
+      ${sel('city','Location',Object.keys(CITIES).map(k=>[k,CITIES[k].name]),true)}
+      ${sel('basis','Size the array for',[['min','Worst month (safe)'],['avg','Annual average']],true)}
+      ${num('pshAvg','Sun hours, average','h/day',0.1)}
+      ${num('pshMin','Sun hours, worst month','h/day',0.1)}
+      ${num('alt','Altitude','m',50)}
+      ${num('tmin','Lowest air temperature','°C',1)}
+      ${num('area','Roof or land area available','m²',10,'0 = not known',true)}
+    </div>
+    <small class="hint">City sun values are approximate. Check your exact site in Global Solar Atlas or PVGIS before ordering.</small></div>
+  <div class="grp"><h2>Battery</h2>
+    <div class="grid2">${sel('batt','Chemistry',Object.keys(BATT).map(k=>[k,BATT[k].label]),true)}</div>
+    <label class="check" style="margin-top:12px"><input type="checkbox" id="manual"> Set the battery share myself</label>
+    <div class="fld" style="margin-top:6px"><span class="lbl">Share of daily energy from battery: <b id="shareOut"></b></span>
+      <input type="range" id="share" min="0" max="100" step="1" aria-label="Battery share of daily energy"></div></div>
+  <details class="adv"><summary>Component details</summary>
+    <h4>Battery</h4>
+    <div class="grid2">
+      ${num('dod','Usable depth of discharge','%',5)}${num('eff','Round-trip efficiency','%',1)}
+      ${num('cmax','Max continuous discharge','C',0.05,'0.5 C = full discharge in 2 h')}${num('age','Ageing reserve','%',5)}
+      ${num('buf','Ride-through buffer at full load','min',1)}${num('days','Days of battery autonomy','days',0.5)}
+      ${num('uv','Battery unit voltage','V',0.1)}${num('uah','Battery unit capacity','Ah',10)}
+      ${sel('vbus','DC bus voltage',[['auto','Automatic'],['48','48 V'],['96','96 V'],['192','192 V'],['384','384 V']],true)}
+    </div>
+    <h4>Solar panel</h4>
+    <div class="grid2">
+      ${sel('panel','Panel',Object.keys(PANELS).map(k=>[k,PANELS[k].label]),true)}
+      ${num('pw','Power (Pmax)','W',5)}${num('parea','Area','m²',0.01)}
+      ${num('voc','Open-circuit voltage (Voc)','V',0.1)}${num('vmp','Max-power voltage (Vmp)','V',0.1)}
+      ${num('isc','Short-circuit current (Isc)','A',0.1)}${num('bv','Voltage temp. coefficient','%/°C',0.01)}
+    </div>
+    <small class="hint">Panel presets are typical values. Replace them with your datasheet.</small>
+    <h4>System and inverter</h4>
+    <div class="grid2">
+      ${num('pr','System performance ratio','%',1,'Heat, dirt, wiring, MPPT')}${num('einv','Inverter efficiency','%',1)}
+      ${num('margin','Array design margin','%',1)}${num('head','Inverter headroom','%',1)}
+      ${sel('phase','Supply',[['auto','Automatic'],['1','Single-phase 230 V'],['3','Three-phase 400 V']],true)}
+      ${num('surgeM','Motor start surge','× rated',0.5)}
+    </div>
+    <h4>MPPT input of the inverter</h4>
+    <div class="grid2">
+      ${num('mvmax','Max DC voltage','V',10)}${num('mvmin','MPPT start voltage','V',10)}
+      ${num('mimax','Max current per MPPT','A',1)}${num('mpmax','Max PV power per MPPT','kW',1)}
+    </div>
+    <h4>Prices (USD, placeholders)</h4>
+    <div class="grid2">
+      ${num('ppw','Panels','$/Wp',0.01)}${num('pinv','Inverter','$/kW',10)}
+      ${num('pbat','Battery','$/kWh',10)}${num('bos','Cables, frames, protection, labour','% of equipment',1)}
+    </div>
+  </details>`;
+}
+const $=q=>document.querySelector(q);
+
+function bindControls(){
+  Object.keys(S).forEach(k=>{
+    const el=document.getElementById(k); if(!el) return;
+    if(el.type==='checkbox') el.checked=S[k]; else el.value=S[k];
+  });
+  const setVals=o=>Object.keys(o).forEach(k=>{S[k]=o[k];const el=document.getElementById(k);if(el)el.value=o[k]});
+  const hooks={
+    city:()=>{const c=CITIES[S.city];setVals({pshAvg:c.avg,pshMin:c.min,alt:c.alt,tmin:c.tmin})},
+    batt:()=>{const b=BATT[S.batt];setVals({dod:b.dod,eff:b.eff,cmax:b.cmax,age:b.age,uv:b.uv,uah:b.uah,pbat:b.pbat})},
+    panel:()=>{const p=PANELS[S.panel];if(S.panel!=='custom')setVals({pw:p.pw,voc:p.voc,vmp:p.vmp,isc:p.isc,parea:p.parea})}
+  };
+  $('#controls').addEventListener('input',e=>{
+    const el=e.target; if(!el.id||!(el.id in S)) return;
+    if(el.type==='checkbox') S[el.id]=el.checked;
+    else if(el.type==='number'||el.type==='range'){const v=parseFloat(el.value);if(isNaN(v))return;S[el.id]=v}
+    else S[el.id]=el.value;
+    if(hooks[el.id]) hooks[el.id]();
+    update();
+  });
+  document.querySelectorAll('.disc').forEach(b=>b.addEventListener('click',()=>{S.n=+b.dataset.n;update()}));
+}
+
+/* ---------- rendering ---------- */
+const row=(l,v)=>`<div class="row"><dt>${l}</dt><dd>${v}</dd></div>`;
+const blk=(cls,title,main,body)=>`<section class="blk ${cls}"><div class="bh"><h3>${title}</h3><div class="main">${main}</div></div><dl>${body}</dl></section>`;
+const phLabel=R=>R.ph===3?'three-phase':'single-phase';
+
+function pieces(x1,x2,w1,w2){const out=[];const add=(p,q,k)=>{if(q>p+1e-6)out.push([p,q,k])};
+  add(x1,Math.min(x2,w1),'b');add(Math.max(x1,w1),Math.min(x2,w2),'d');add(Math.max(x1,w2),x2,'b');return out}
+
+function renderTimeline(R){
+  const L=h=>(h/24*100).toFixed(3)+'%', W=(p,q)=>((q-p)/24*100).toFixed(3)+'%';
+  const sun=`<i class="i-sun" style="left:${L(R.sw1)};width:${W(R.sw1,R.sw2)}"></i>`;
+  let mach='';
+  pieces(R.a,R.a+R.hu,R.sw1,R.sw2).forEach(p=>{mach+=`<i class="i-${p[2]} warm" style="left:${L(p[0])};width:${W(p[0],p[1])}"></i>`});
+  pieces(R.a+R.hu,R.b,R.sw1,R.sw2).forEach(p=>{mach+=`<i class="i-${p[2]}" style="left:${L(p[0])};width:${W(p[0],p[1])}"></i>`});
+  let ax='';for(let h=0;h<=24;h+=3)ax+=`<span style="left:${L(h)}">${String(h).padStart(2,'0')}</span>`;
+  $('#timeline').innerHTML=`<div class="lab">Sun</div><div class="track">${sun}</div>
+    <div class="lab">Machine</div><div class="track">${mach}</div>
+    <div></div><div class="axis">${ax}</div>`;
+}
+
+function renderHero(R){
+  const chem=BATT[S.batt].short;
+  $('#sentence').innerHTML=`Run <b class="c-heat">${S.n} griddle${S.n>1?'s':''}</b> from ${hm(R.a)} to ${hm(R.b)} on <b class="c-pv">${R.panels} × ${S.pw} W panels</b> (${f(R.kwpAct,1)} kWp), a <b class="c-inv">${R.invN>1?R.invN+' × ':''}${R.invUnit} kW ${phLabel(R)} inverter</b> and a <b class="c-bat">${f(R.nomAct,0)} kWh ${chem} battery</b>.`;
+  $('#subline').textContent=`The machine uses ${f(R.E,0)} kWh a day and ${f(R.share*100,0)}% of it comes from the battery. The array is sized for ${f(R.psh,1)} peak sun hours (${S.basis==='avg'?'annual average':'worst month'}).`;
+}
+
+function renderFlow(R){
+  return `<div class="flow">
+    <div class="node n-pv"><b>Solar array</b><span>${R.panels} × ${S.pw} W</span><span>${f(R.kwpAct,1)} kWp</span></div>
+    <div class="link">DC<br>${R.strings} string${R.strings>1?'s':''} of ${R.series}</div>
+    <div class="node n-inv"><b>Hybrid inverter</b><span>${R.invN>1?R.invN+' × ':''}${R.invUnit} kW</span><span>${phLabel(R)}</span></div>
+    <div class="link">AC<br>${f(R.peak,1)} kW peak</div>
+    <div class="node n-load"><b>Griddles</b><span>${S.n} × ${f(S.pG/1000,1)} kW</span><span>+ ${f(S.aux,0)} W other</span></div>
+    <div class="vlink"></div>
+    <div class="node n-bat"><b>Battery</b><span>${f(R.nomAct,0)} kWh · ${R.bankV>=100?f(R.bankV,0):f(R.bankV,1)} V</span><span>${R.units} × ${S.uv} V ${S.uah} Ah</span></div>
+  </div>`;
+}
+
+function renderChecks(R){
+  const ck=[],add=(l,t)=>ck.push([l,t]);
+  if(!R.valid) add('bad',`No string length fits the inverter's MPPT window: at least ${R.minS} panels are needed to reach the start voltage but only ${R.maxS} are allowed at ${S.tmin} °C. Choose a different panel or an inverter with a wider range.`);
+  else add('ok',`Strings of ${R.series} panels: ${f(R.series*R.vocCold,0)} V open-circuit at ${S.tmin} °C (inverter limit ${S.mvmax} V) and about ${f(R.series*R.vmpHot,0)} V in hot sun (MPPT starts at ${S.mvmin} V).`);
+  if(!S.manual&&R.Eout>0.05) add('warn',`${f(R.Eout,1)} kWh a day is used outside the solar window and has to come from the battery. Shifting the same hours so the machine starts at ${hm(R.sw1)} removes most of it (see What if below).`);
+  if(R.ch>3) add('warn',`The array needs ${R.ch} MPPT inputs. Most hybrid inverters have 2 to 4, so plan for several inverter units or separate MPPT charge controllers.`);
+  else add('ok',`${R.ch} MPPT input${R.ch>1?'s':''} needed, with up to ${R.perCh} string${R.perCh>1?'s':''} each.`);
+  if(R.dcac>1.6) add('warn',`The array (${f(R.kwpAct,1)} kWp) is ${f(R.dcac,1)}× the inverter size. Expect clipping and check the inverter's maximum PV input.`);
+  else if(R.dcac<0.8) add('warn',`The array is smaller than the inverter (ratio ${f(R.dcac,2)}). The inverter will rarely be fully used.`);
+  if(R.Ipk>250) add('warn',`The battery peak current is ${f(R.Ipk,0)} A. Raise the DC bus voltage to cut current and cable size.`);
+  if(R.ph===1&&R.invReq>12) add('warn',`${f(R.invReq,0)} kW is more than single-phase inverters normally supply. Use a three-phase system or several units.`);
+  if(R.ph===3&&S.n%3!==0) add('warn',`${S.n} griddles split over three phases as ${R.perPhase.join(' / ')}. The busiest phase carries ${f(R.imb,0)}% above average. A multiple of 3 balances perfectly.`);
+  if(R.altF<1) add('info',`At ${f(S.alt,0)} m the inverter output is derated by about ${f((1-R.altF)*100,1)}% (assumed 1% per 100 m above 2000 m). Confirm the rated altitude on the inverter datasheet.`);
+  if(R.capab<R.Pdc*0.95) add('info',`Battery alone can supply ${f(R.capab,0)} kW (${f(R.capab/R.Pdc*100,0)}% of peak load). On heavily clouded mornings the griddles will warm up more slowly.`);
+  if(S.batt!=='lfp'&&R.share>0.15) add('warn',`Lead-acid batteries cycled this deeply every day wear out quickly. LiFePO₄ usually lasts several times more cycles.`);
+  if(S.area>0){ if(R.areaM2>S.area) add('bad',`The panels need ${f(R.areaM2,0)} m² but only ${f(S.area,0)} m² is available.`); else add('ok',`Panels need ${f(R.areaM2,0)} m² and ${f(S.area,0)} m² is available.`) }
+  const sym={ok:'✓',warn:'!',bad:'✕',info:'i'}, lab={ok:'OK',warn:'Check',bad:'Problem',info:'Note'};
+  return `<section class="blk neutral"><div class="bh"><h3>Design checks</h3></div><ul class="chk">${ck.map(c=>`<li><span class="dot ${c[0]}" aria-hidden="true">${sym[c[0]]}</span><span><span class="vh">${lab[c[0]]}: </span>${c[1]}</span></li>`).join('')}</ul></section>`;
+}
+
+function whatIf(R){
+  const rows=[['Your inputs',R]];
+  rows.push([S.basis==='avg'?'Size for the worst month instead':'Size for the annual average instead',compute({...S,basis:S.basis==='avg'?'min':'avg'})]);
+  const a=tt(S.start),b=tt(S.end),sw1=tt(S.sw1);
+  if(a<sw1-0.01&&b+(sw1-a)<=24) rows.push([`Same hours, shifted to start at ${hm(sw1)}`,compute({...S,start:S.sw1,end:hm(b+(sw1-a))})]);
+  if(S.duty>20) rows.push(['Better insulation: duty 10 points lower',compute({...S,duty:S.duty-10})]);
+  if(S.simul>60&&S.n>=4) rows.push(['Warm up in two groups (warm-up takes about 2× longer)',compute({...S,simul:50})]);
+  const d=(v,b0,dec)=>{const x=v-b0;if(Math.abs(x)<0.05)return '';return ` <small class="${x<0?'d-good':'d-bad'}">${x<0?'−':'+'}${f(Math.abs(x),dec)}</small>`};
+  const body=rows.map((r,i)=>{const x=r[1];return `<tr><td>${r[0]}</td><td>${x.panels}${i?d(x.panels,R.panels,0):''}</td><td>${f(x.invTot,0)}${i?d(x.invTot,R.invTot,0):''}</td><td>${f(x.nomAct,0)}${i?d(x.nomAct,R.nomAct,0):''}</td></tr>`}).join('');
+  return `<section class="blk neutral"><div class="bh"><h3>What if</h3></div><div class="scroll"><table class="w"><thead><tr><th>Scenario</th><th>Panels</th><th>Inverter kW</th><th>Battery kWh</th></tr></thead><tbody>${body}</tbody></table></div></section>`;
+}
+
+function renderResults(R){
+  const bar=`<div class="split" aria-hidden="true"><i style="flex:${R.Eh};background:var(--heat)"></i><i style="flex:${R.Ebk};background:var(--sun)"></i><i style="flex:${R.Ea};background:var(--muted)"></i></div>`;
+  const energy=blk('heat','Energy and load',`${f(R.E,0)} kWh/day`,
+    bar+
+    row('Warm-up',`${f(R.Eh,1)} kWh`)+row('Baking',`${f(R.Ebk,1)} kWh`)+row('Other loads',`${f(R.Ea,1)} kWh`)+
+    row('Peak load',`${f(R.peak,1)} kW`)+row('Average load while baking',`${f(R.Pb+R.Pa,1)} kW`)+
+    row('From the battery',`${f(R.Ebat,1)} kWh (${f(R.share*100,0)}%)`)+
+    row('Injera per day',`${f(R.injera,0)}`)+row('Energy per injera',`${f(R.kWhInj,3)} kWh`));
+  const pv=blk('pv','Solar array',`${R.panels} panels`,
+    row('Array needed',`${f(R.kwp,1)} kWp<small>set by ${R.gov}</small>`)+
+    row('Layout',`${R.strings} string${R.strings>1?'s':''} × ${R.series} panels<small>${f(R.series*S.vmp,0)} V nominal per string</small>`)+
+    row('Installed',`${f(R.kwpAct,1)} kWp`)+
+    row('Daily PV energy target (DC)',`${f(R.Epv,0)} kWh at ${f(R.psh,1)} sun hours, ${f(R.pr*100,0)}% performance`)+
+    row('MPPT inputs',`${R.ch} (up to ${R.perCh} string${R.perCh>1?'s':''} each)`)+
+    row('String fuse',R.fuse?`${R.fuse} A on each string`:'Not needed with fewer than 3 strings per input')+
+    row('Panel area',`${f(R.areaM2,0)} m²<small>about ${f(R.areaM2*1.8,0)} m² of ground in a ground-mount</small>`)+
+    row('Tilt and direction','About 10° to 15°, facing south (the site is near 9° N)'));
+  const inv=blk('inv','Inverter',`${R.invN>1?R.invN+' × ':''}${R.invUnit} kW`,
+    row('Supply',`${phLabel(R)}, ${R.ph===3?'400 V':'230 V'}`)+
+    row('Peak AC load',`${f(R.peak,1)} kW`)+
+    row('Required rating',`${f(R.invReq,1)} kW<small>peak + ${S.head}% headroom${R.altF<1?`, altitude derate ${f((1-R.altF)*100,1)}%`:''}</small>`)+
+    (R.altInv?row('Modular option',`${R.altInv.n} × ${R.altInv.u} kW in parallel<small>keeps baking if one unit fails</small>`):'')+
+    row('AC current at peak',`${f(R.Iac,0)} A${R.ph===3?' per phase':''}`)+
+    row('Main breaker',breaker(R.Iac*1.25)+`<small>feeder cable ${cable(R.Iac*1.25)}</small>`)+
+    row('Start-up surge',`${f(R.surge,1)} kW<small>inverter should allow this for at least 10 s</small>`)+
+    row('Array to inverter ratio',f(R.dcac,2)));
+  const bat=blk('bat','Battery',`${f(R.nomAct,0)} kWh`,
+    row('Chemistry',BATT[S.batt].label)+
+    row('Sized by',`${R.govB}<small>energy ${f(R.capE,0)} kWh · buffer ${f(R.capBuf,0)} kWh · power ${f(R.capP,0)} kWh</small>`)+
+    row('Installed bank',`${R.bSeries} in series × ${R.bPar} in parallel<small>${R.units} units of ${S.uv} V ${S.uah} Ah</small>`)+
+    row('Bank voltage',`${f(R.bankV,1)} V`)+
+    row('Usable energy',`${f(R.usable,0)} kWh`)+
+    row('Peak battery current',`${f(R.Ipk,0)} A`)+
+    row('Battery power capability',`${f(R.capab,0)} kW`)+
+    row('DC breaker at full inverter load',breaker(R.Ifull*1.25)+`<small>cable ${cable(R.Ifull*1.25)}</small>`));
+  const phTxt=R.ph===3?`${R.perPhase.join(' / ')} griddles on phases L1 / L2 / L3`:`all ${S.n} on one phase`;
+  const wire=blk('neutral','Griddle circuits',`${f(R.Ig,1)} A each`,
+    row('Per griddle',`${f(S.pG,0)} W at 230 V<small>breaker ${breaker(R.Ig*1.25)}, cable ${cable(R.Ig*1.25)}</small>`)+
+    row('Distribution',phTxt)+
+    row('Switching','One contactor or solid-state relay per griddle, driven by the thermostat controller'));
+  const cost=blk('neutral','Rough budget',`$${f(R.cTot,0)}`,
+    row('Panels',`$${f(R.cPV,0)}`)+row('Inverter',`$${f(R.cInv,0)}`)+row('Battery',`$${f(R.cBat,0)}`)+row(`Balance of system (${S.bos}%)`,`$${f(R.cBos,0)}`)+
+    row('Per installed kWp',`$${f(R.cTot/R.kwpAct,0)}`));
+  const notes=`<ul class="notes"><li>This is a pre-design estimate. Have a qualified solar engineer confirm the design against your exact panel, inverter and battery datasheets and local electrical code.</li>
+    <li>Peak sun hours are plane-of-array values at a low tilt and are approximate.</li>
+    <li>Heaters are resistive, so there is almost no inrush current. The surge figure comes from the motors in your other loads.</li>
+    <li>Cable and breaker sizes are indicative. Check voltage drop (aim for 2% or less) and the temperature near the griddles.</li></ul>`;
+  return renderFlow(R)+renderChecks(R)+energy+pv+inv+bat+wire+whatIf(R)+cost+notes;
+}
+
+function summary(R){
+  return [`Injera machine solar sizing`,
+  `${S.n} griddles × ${S.pG} W, ${hm(R.a)}–${hm(R.b)}, ${f(R.E,0)} kWh/day (${f(R.share*100,0)}% from battery)`,
+  `Solar: ${R.panels} × ${S.pw} W = ${f(R.kwpAct,1)} kWp (${R.strings} strings × ${R.series}), ${R.ch} MPPT input(s)`,
+  `Inverter: ${R.invN>1?R.invN+' × ':''}${R.invUnit} kW ${phLabel(R)}, peak load ${f(R.peak,1)} kW, main breaker ${breaker(R.Iac*1.25)}`,
+  `Battery: ${f(R.nomAct,0)} kWh ${BATT[S.batt].short}, ${R.bSeries}S × ${R.bPar}P of ${S.uv} V ${S.uah} Ah, ${f(R.bankV,0)} V bank`,
+  `Rough budget: $${f(R.cTot,0)}`].join('\n');
+}
+
+let LAST=null;
+function update(){
+  const R=compute(S); LAST=R;
+  document.querySelectorAll('.disc').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.n<=S.n)));
+  $('#discSum').textContent=`${S.n} griddle${S.n>1?'s':''}, ${f(S.n*S.pG/1000,1)} kW of heating`;
+  const sh=$('#share'); sh.disabled=!S.manual; sh.value=S.manual?S.share:Math.round(R.autoShare*100);
+  $('#shareOut').textContent=f(S.manual?S.share:R.autoShare*100,0)+'%'+(S.manual?'':' (from your schedule)');
+  renderHero(R); renderTimeline(R);
+  $('#results').innerHTML=renderResults(R);
+}
+
+$('#copyBtn').addEventListener('click',()=>{
+  const txt=summary(LAST), msg=$('#copied');
+  const done=ok=>{msg.textContent=ok?'Copied':'Copy blocked. Select the sentence above instead.';setTimeout(()=>msg.textContent='',2500)};
+  try{navigator.clipboard.writeText(txt).then(()=>done(true),()=>done(false))}catch(e){done(false)}
+});
+
+buildControls(); bindControls(); update();
+</script>
+</body>
+</html>
